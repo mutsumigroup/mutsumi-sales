@@ -1961,19 +1961,66 @@ async function sbSaveGoal(){
 
 async function sbSyncAll(){
   if(!SB_CONNECTED){ toast('⚠️ Supabaseに接続してください'); return; }
-  toast('⏳ 同期中...');
-  // 全ローカルデータをSupabaseにアップロード
-  for(var i=0; i<SALES.length; i++){
-    var s = SALES[i];
-    if(typeof s.id === 'number' && s.id > 1000000000000){
-      // ローカルIDのものは新規INSERT
-      var res = await sbInsertSale(s);
-      if(res && res.id){ s.id = res.id; }
+
+  var btn = document.getElementById('sb-sync-btn');
+  if(btn){ btn.textContent = '⏳ 同期中...'; btn.disabled = true; }
+
+  var stEl = document.getElementById('sb-connect-status');
+
+  try {
+    // ① まずSupabaseの最新データを取得
+    if(stEl) stEl.innerHTML = '<span style="color:var(--pr);">⏳ Supabaseから最新データを取得中...</span>';
+    var salRes = await fetch(sbApi('sales?order=date.desc&limit=10000'), { headers: sbHeaders() });
+    var sbSales = await salRes.json();
+    if(!Array.isArray(sbSales)) sbSales = [];
+
+    // ② ローカルにしかないデータをSupabaseに追加（削除しない）
+    // Supabaseにある日付+金額+事業のセットを記録
+    var sbKeys = {};
+    sbSales.forEach(function(s){
+      var key = s.date + '_' + s.biz_id + '_' + s.amount + '_' + (s.client||'');
+      sbKeys[key] = true;
+    });
+
+    // ローカルでSupabaseにないものを抽出
+    var toUpload = SALES.filter(function(s){
+      var key = s.date + '_' + s.bizId + '_' + s.amount + '_' + (s.client||'');
+      return !sbKeys[key];
+    });
+
+    if(stEl) stEl.innerHTML = '<span style="color:var(--pr);">⏳ '+toUpload.length+'件をアップロード中...</span>';
+
+    // 50件ずつ一括INSERT
+    var uploaded = 0;
+    var batchSize = 50;
+    for(var i=0; i<toUpload.length; i+=batchSize){
+      var batch = toUpload.slice(i, i+batchSize).map(function(s){
+        return { date: s.date, biz_id: s.bizId, amount: s.amount, client: s.client||null, memo: s.memo||null };
+      });
+      var res = await fetch(sbApi('sales'), {
+        method: 'POST',
+        headers: sbHeaders(),
+        body: JSON.stringify(batch)
+      });
+      var data = await res.json();
+      if(Array.isArray(data)) uploaded += data.length;
     }
+
+    // ③ Supabaseの全データをローカルに反映（スマホで登録したデータも取込む）
+    await sbFetchAll();
+
+    var msg = '✅ 同期完了！';
+    if(uploaded > 0) msg += ' '+uploaded+'件をSupabaseに追加';
+    if(toUpload.length === 0) msg += ' （新しいデータなし）';
+    toast(msg);
+
+  } catch(e) {
+    toast('❌ 同期失敗: ' + e.message);
+    console.error(e);
+    if(stEl) stEl.innerHTML = '<span style="color:var(--er);">❌ 同期失敗: '+e.message+'</span>';
   }
-  saveSales();
-  await sbFetchAll();
-  toast('✅ 同期完了！');
+
+  if(btn){ btn.textContent = '🔄 全データ同期'; btn.disabled = false; }
 }
 
 
