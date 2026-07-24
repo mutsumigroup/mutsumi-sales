@@ -333,7 +333,10 @@ input:focus,select:focus{outline:none;border-color:var(--pr);box-shadow:0 0 0 3p
         <button class="btn sec sm" onclick="calTdy()">今日</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
         <div id="cal-mo-total" style="font-size:13px;font-weight:700;color:var(--pr);"></div>
+        <button type="button" class="btn pry sm" onclick="openSaleModal()" style="white-space:nowrap;">＋ 売上登録</button>
+      </div>
         <div style="display:flex;gap:3px;">
           <button id="btn-cal-month" onclick="setCalView('month')"
             style="padding:5px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:#1a56db;color:#fff;">月</button>
@@ -1154,8 +1157,21 @@ function calCell(ds,d,cls){
     return '<div class="cev '+bizClass(s.bizId)+'">'+fmt(s.amount)+'</div>';
   }).join('');
   if(daySales.length>2) evs+='<div style="font-size:9px;color:var(--tm);">+'+(daySales.length-2)+'件</div>';
-  return '<div class="cc '+cls+'"><div class="cdn'+(cls.includes('su')?' su':cls.includes('sa')?' sa':'')+'">'+d+'</div>'+evs+'</div>';
+  // 日付クリックで売上登録（過去・当日のみ）
+
+  return '<div class="cc '+cls+'" style="position:relative;"><div class="cdn'+(cls.includes('su')?' su':cls.includes('sa')?' sa':'')+'">'+d+'</div>'+evs+(cls!=='om'?'<div class="cab" data-d="'+ds+'" onclick="event.stopPropagation();calAddSale(this.dataset.d)" style="position:absolute;bottom:2px;right:2px;width:18px;height:18px;background:var(--pr);color:#fff;border-radius:50%;font-size:13px;line-height:18px;text-align:center;cursor:pointer;">+</div>':'')+'</div>';
 }
+
+function calAddSale(ds){ openSaleModal(); setTimeout(function(){ var el=document.getElementById('s-date'); if(el) el.value=ds; },60); }
+
+
+
+
+
+
+
+
+
 
 function drawWeekCal(cont, mn){
   // 週の開始日（月曜）を計算
